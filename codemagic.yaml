@@ -1,0 +1,37 @@
+workflows:
+  thelab-ios:
+    name: The Lab iOS to TestFlight
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        provisioning_profiles:
+          - thelab_appstore
+        certificates:
+          - thelab-distribution
+    scripts:
+      - name: Install web dependencies
+        script: npm install
+      - name: Sync Capacitor into the iOS project
+        script: npx cap sync ios
+      - name: Apply signing profile
+        script: xcode-project use-profiles
+      - name: Set build number
+        script: |
+          sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = $PROJECT_BUILD_NUMBER;/g" ios/App/App.xcodeproj/project.pbxproj
+      - name: Build the IPA
+        script: |
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
