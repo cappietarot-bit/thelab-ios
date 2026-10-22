@@ -1468,22 +1468,9 @@ function doseLabel(p){
   const b=blendSplit(p);
   return `${p.dose} ${p.unit}`+(b?` (${b})`:"");
 }
-function reconUnits(p){if(!p.bacMl||!p.vialMg)return null;const conc=p.vialMg/p.bacMl;return round(doseMg(p)/conc*100,1);}
-/* pick a bac-water volume that lands the dose on a clean, even unit mark */
-function suggestBac(vialMg,doseMg){const opts=[0.5,1,1.5,2,2.5,3,4,5];let best=null;
-  opts.forEach(b=>{const u=doseMg*b/vialMg*100,r=Math.round(u);let sc=0;
-    if(Math.abs(u-r)<0.06)sc+=2;if(r%10===0)sc+=3;else if(r%5===0)sc+=2;
-    if(u>=15&&u<=90)sc+=2;else if(u<8||u>100)sc-=4;
-    if(!best||sc>best.sc||(sc===best.sc&&Math.abs(u-50)<Math.abs(best.u-50)))best={b,u,sc};});
-  return best||{b:2,u:doseMg*2/vialMg*100};}
-function syrSVG(units){const u=Math.max(0,Math.min(100,units)),x0=16,w=178;
-  let t="";for(let i=0;i<=100;i+=10)t+=`<line x1="${x0+w*i/100}" y1="11" x2="${x0+w*i/100}" y2="15" stroke="var(--ink3)" stroke-width="1"/>`;
-  return `<svg class="syr" viewBox="0 0 220 40" fill="none"><rect x="${x0-9}" y="9" width="9" height="20" rx="2" fill="var(--line2)"/>
-    <rect x="${x0}" y="12" width="${w}" height="14" rx="3" fill="var(--panel)" stroke="var(--line2)"/>
-    <rect x="${x0}" y="12" width="${w*u/100}" height="14" rx="3" fill="var(--accent)" opacity="0.85"/>${t}
-    <line x1="${x0+w}" y1="19" x2="216" y2="19" stroke="var(--ink3)" stroke-width="2"/>
-    <line x1="${x0+w*u/100}" y1="7" x2="${x0+w*u/100}" y2="31" stroke="var(--accent-ink)" stroke-width="2"/></svg>`;}
-
+/* store builds carry no dose maths (App Store rule 1.4.2: dose calculators only
+   from a drug maker, pharmacy or cleared device), so syringe units are never shown */
+function reconUnits(p){return null;}
 /* ============ HOME (week strip + action cards) ============ */
 let selDay=new Date();
 let calMode="week";           // week strip, or the month grid inside Settings
@@ -5334,36 +5321,25 @@ function pickSize(name){
     <div class="sizes" id="szList">${it.s.map(sz=>`<button class="szbtn" data-sz="${sz}">${sz} ${unit}</button>`).join("")}</div>
     <button class="ghost" id="backCat">‹ Back</button>`;
   $("#backCat").onclick=openAdd;
-  $$("[data-sz]").forEach(b=>b.onclick=()=>{const sz=+b.dataset.sz;if(unit!=="mg")addFinal(name,sz,unit,1,unit,0);else reconStep(name,sz);});
+  $$("[data-sz]").forEach(b=>b.onclick=()=>{const sz=+b.dataset.sz;if(unit!=="mg")addFinal(name,sz,unit,1,unit,0);else doseStep(name,sz);});
 }
-function reconStep(name,size){
-  const arch=S.archive.find(a=>a.name===name),ld=LOWDOSE[name];
-  let dose=arch?arch.dose:(ld?ld[0]:(size>=50?round(size*0.02,2):0.25)),du=arch?arch.unit:(ld?ld[1]:"mg");
-  let tm=arch?(arch.time||"am"):(ld?ld[2]:"am");
-  let bac=arch?(arch.bacMl||2):(suggestBac(size,du==="mcg"?dose/1000:dose).b||2);
-  $("#sheet").innerHTML=`<h3>${name} · ${size} mg</h3><div class="msub">Reconstitution &amp; dose${arch?" · restored from archive":", no napkin math"}</div>
-    <div id="recOut" class="reccard"></div>
+function doseStep(name,size){
+  const arch=S.archive.find(a=>a.name===name);
+  let du=arch?arch.unit:"mg";
+  const tm=arch?(arch.time||"am"):"am";
+  $("#sheet").innerHTML=`<h3>${name} · ${size} mg</h3><div class="msub">Your dose${arch?" · restored from archive":""}</div>
     <div class="grid2"><div class="fld"><label>Vial amount (mg)</label><input class="mono" id="rcVial" type="number" inputmode="decimal" value="${size}"></div>
-      <div class="fld"><label>Bac water (mL)</label><input class="mono" id="rcBac" type="number" inputmode="decimal" value="${bac}"></div></div>
-    <div class="fld" style="margin-top:9px"><label>Desired dose</label>
-      <div style="display:flex;gap:8px"><input class="mono" id="rcDose" type="number" inputmode="decimal" value="${dose}" style="flex:1">
-        <div class="seg" style="margin:0;flex:0 0 112px"><button id="uMg" class="${du==='mg'?'on':''}">mg</button><button id="uMcg" class="${du==='mcg'?'on':''}">mcg</button></div></div></div>
-    <div class="sizes" style="margin-top:9px"><button class="chip2" data-dv="0.25">250mcg</button><button class="chip2" data-dv="0.5">500mcg</button><button class="chip2" data-dv="1">1mg</button><button class="chip2" data-dv="2">2mg</button></div>
+      <div class="fld"><label>Dose</label><input class="mono" id="rcDose" type="number" inputmode="decimal" value="${arch?arch.dose:""}"></div></div>
+    <div class="seg" style="margin-top:9px"><button id="uMg" class="${du==='mg'?'on':''}">mg</button><button id="uMcg" class="${du==='mcg'?'on':''}">mcg</button></div>
     <button class="primary" id="rcAdd">Add to my stack</button>
     <button class="ghost" id="rcBack">‹ Back to sizes</button>`;
   $("#modal").classList.add("on");
-  const draw=()=>{const v=parseFloat($("#rcVial").value)||size,b=parseFloat($("#rcBac").value)||1,d=parseFloat($("#rcDose").value)||0;
-    const dm=du==="mcg"?d/1000:d,conc=v/b,vol=dm/conc,units=vol*100,sug=suggestBac(v,dm||0.001);
-    $("#recOut").innerHTML=`<div class="recbig">Draw to <b>${round(units,1)}</b> units</div>${syrSVG(units)}
-      <div class="recmeta"><span>Conc <b>${round(conc,2)} mg/mL</b></span><span>Vol <b>${round(vol,3)} mL</b></span></div>
-      <div class="recsug">${Math.abs(units-Math.round(units))<.06&&Math.round(units)%5===0?"Lands on a clean "+Math.round(units)+"-unit mark ✓":"Tip: "+sug.b+" mL bac water = a clean "+Math.round(sug.u)+"-unit draw"}</div>`;};
-  ["rcVial","rcBac","rcDose"].forEach(i=>$("#"+i).oninput=draw);
-  $("#uMg").onclick=()=>{du="mg";$("#uMg").classList.add("on");$("#uMcg").classList.remove("on");draw();};
-  $("#uMcg").onclick=()=>{du="mcg";$("#uMcg").classList.add("on");$("#uMg").classList.remove("on");draw();};
-  $$("[data-dv]").forEach(b=>b.onclick=()=>{du="mg";$("#uMg").classList.add("on");$("#uMcg").classList.remove("on");$("#rcDose").value=b.dataset.dv;$("#rcBac").value=suggestBac(parseFloat($("#rcVial").value)||size,parseFloat(b.dataset.dv)).b;draw();});
-  $("#rcAdd").onclick=()=>addFinal(name,parseFloat($("#rcVial").value)||size,"mg",parseFloat($("#rcDose").value)||0.25,du,parseFloat($("#rcBac").value)||2,tm);
+  $("#uMg").onclick=()=>{du="mg";$("#uMg").classList.add("on");$("#uMcg").classList.remove("on");};
+  $("#uMcg").onclick=()=>{du="mcg";$("#uMcg").classList.add("on");$("#uMg").classList.remove("on");};
+  $("#rcAdd").onclick=()=>{const d=parseFloat($("#rcDose").value);
+    if(!d){toast(L("Enter your dose"));$("#rcDose").focus();return;}
+    addFinal(name,parseFloat($("#rcVial").value)||size,"mg",d,du,arch?(arch.bacMl||2):2,tm);};
   $("#rcBack").onclick=()=>pickSize(name);
-  draw();
 }
 function addFinal(name,size,vialUnit,dose,du,bac,tm){
   const it=LUCKY[name];const arch=S.archive.find(a=>a.name===name);
@@ -5400,15 +5376,10 @@ function editVial(id,isNew){
       <div class="fld"><label>Exact time (optional)</label><input id="eClock" type="time" value="${p.clock||''}"></div>
     </div>
     <div id="eWeek" style="margin-top:10px;${s.t==='week'?'':'display:none'}"><label class="lbl">Days</label><div class="sizes" style="margin-top:6px">${days}</div></div>
-    <div class="src" id="reconLive"></div>
     <button class="primary" id="eSave">Save</button>
     ${isNew?"":`<button class="ghost" id="eArch">Archive — park it with these settings</button><button class="ghost danger" id="eDel">Remove permanently</button>`}`;
   $("#modal").classList.add("on");
   let sel=s.t==='week'?[...s.days]:[];
-  const upd=()=>{const dose=parseFloat($("#eDose").value)||0,vial=parseFloat($("#eVial").value)||0,bac=parseFloat($("#eBac").value)||0;
-    const u=(vial&&bac)?round(dose/(vial/bac)*100,1):null;
-    $("#reconLive").innerHTML=u!=null?`Recon: at ${vial}${$("#eUnit").value} in ${bac}mL, your ${dose}${$("#eUnit").value} dose = <b class="rec">${u} units</b> on a U-100 insulin syringe.`:"Enter vial size and bac water for the syringe-units calc.";};
-  ["eDose","eVial","eBac","eUnit"].forEach(i=>$("#"+i).oninput=upd);upd();
   $("#eFreq").onchange=e=>$("#eWeek").style.display=e.target.value==='week'?'':'none';
   $$(".dchk").forEach(b=>b.onclick=()=>{const d=+b.dataset.d;if(sel.includes(d)){sel=sel.filter(x=>x!==d);b.style.borderColor='';b.style.color='';}else{sel.push(d);b.style.borderColor='var(--accent)';b.style.color='var(--accent)';}});
   $("#eSave").onclick=()=>{
@@ -7385,6 +7356,8 @@ es:{
 "(tap your avatar, top right).":"(toca tu avatar, arriba a la derecha).",
 "Pick your vial size":"Elige el tama\u00f1o de tu vial",
 "Desired dose":"Dosis deseada",
+"Your dose":"Tu dosis",
+"Enter your dose":"Introduce tu dosis",
 "Add to my stack":"A\u00f1adir a mi stack",
 "Ranges are standard adult clinical values with commonly used optimal targets, not Function's exact bands. Replace them with your own report when you have one — every range is editable.":"Los rangos son valores cl\u00ednicos est\u00e1ndar de adulto con objetivos \u00f3ptimos de uso com\u00fan, no las franjas exactas de Function. Sustit\u00fayelos por los de tu propio informe cuando lo tengas: cada rango es editable.",
 "No detailed guide yet for this one. General principle: start low, stay hydrated, and let bloodwork and your doctor guide any changes.":"Todav\u00eda no hay una gu\u00eda detallada para este. Principio general: empieza bajo, mantente hidratado, y deja que la anal\u00edtica y tu m\u00e9dico gu\u00eden cualquier cambio.",
