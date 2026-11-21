@@ -2279,7 +2279,13 @@ function startRoutine(key,rk){
   const r=ROUTINES[rk];
   const at=(key===iso(new Date()))?Date.now():parseISO(key).getTime()+12*3600000;
   S.workouts.push({id:Date.now()+"",date:key,at,routine:rk,muscles:[...r.muscles],intensity:2,
-    exercises:r.ex.map(e=>({n:e.n,r:e.r,w:e.w,s:e.s,done:false,sets:rampSets(e)}))});
+    exercises:r.ex.map(e=>{
+      // preset from the last completed session for this exercise, falling
+      // back to the routine's starting weight the first time it's done
+      const last=exHistory(e.n)[0];
+      const w=last&&last.w?last.w:e.w, reps=last&&last.r?last.r:e.r;
+      return {n:e.n,r:reps,w:w,s:e.s,done:false,sets:rampSets({r:reps,w:w,s:e.s})};
+    })});
   save();renderDayBody(key,key===iso(new Date()));toast(r.n+" added");
 }
 /* how-to sheet */
