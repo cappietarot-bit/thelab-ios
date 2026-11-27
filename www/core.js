@@ -1049,6 +1049,15 @@ epo:{cls:"Erythropoietin",tier:"human",danger:
  src:[{"n": "Erythropoietin label", "u": "https://dailymed.nlm.nih.gov/dailymed/search.cfm?labeltype=all&query=epoetin"}, {"n": "Safety trials", "u": "https://pubmed.ncbi.nlm.nih.gov/?term=erythropoietin+hemoglobin+target+cardiovascular+mortality"}],key:["Get haematocrit and haemoglobin tested regularly. Without that you are flying blind on the risk that actually matters.", "Stay well hydrated. Dehydration on top of raised haematocrit sharply compounds clot risk.", "Have iron, B12 and folate checked — red cell production needs all three, and low iron blunts the effect.", "Do not use this without a doctor. It is a prescription medicine and the dose is adjusted against blood counts, not a fixed number."],nutr:{food:"No. Erythropoietin is a hormone your kidneys produce.",boost:"Red cell production genuinely depends on nutrition: iron (red meat, lentils, spinach), B12, folate and copper are all required. Never supplement iron without testing — overload is toxic. Vitamin C improves non-haem iron absorption.",reach:"Your kidneys make EPO in response to low oxygen, which is why altitude training raises it naturally and safely. Correcting iron, B12 and folate deficiency raises haemoglobin properly and is the route with actual medical support."},anec:"Endurance reports are dramatic and well documented across decades of sport, which is precisely why it is banned. The harm reports are equally real. This is one where the anecdotes should function as a warning rather than an endorsement.",hl:22}
 };
 
+/* The Play Store build drops anabolic steroid tracking and reference
+   content entirely: not addable, not in the guide, not in Coach answers,
+   no comparison page. Nothing else changes, and no other build target
+   (sideloaded APK, iOS, the public PWA) sets this flag. */
+if(window.VIALBACK_NOGEAR){
+  Object.keys(LUCKY).forEach(k=>{if(LUCKY[k].c==="Gear")delete LUCKY[k];});
+  Object.keys(GEARTIER).forEach(k=>{delete GUIDES[k];delete GEARTIER[k];});
+}
+
 const DEF=[
  mk("reta","Retatrutide","GLP-1",1,"mg",{t:"week",days:[1]},30,30,"Weekly, AM"),
  mk("tesa","Tesamorelin","GH axis",.5,"mg",{t:"daily"},10,10,"Fasted, before bed"),
@@ -6473,7 +6482,7 @@ function renderGuide(){
         return `<button class="adhbtn" id="gAdh" aria-label="Adherence">
           <span class="spark">${last.map((m,i)=>`<i class="${m.hit?"":"m"}" style="height:${5+i}px"></i>`).join("")}</span>
           ${pct}%</button>`;})()}
-      <button class="mini" id="pepSortBtn">${pepSort==="colour"?"◐ Colour":"A–Z"}</button><button class="mini" id="gearBtn">${L("Compare")}</button></div>
+      <button class="mini" id="pepSortBtn">${pepSort==="colour"?"◐ Colour":"A–Z"}</button>${window.VIALBACK_NOGEAR?"":`<button class="mini" id="gearBtn">${L("Compare")}</button>`}</div>
     ${toTake?`<div class="duehead"><b class="tnum">${toTake}</b> <span>still to take today</span></div>`:
       list.some(p=>dueNow(p))?`<div class="duehead done"><span>All of today's shots logged</span></div>`:""}
     <button class="disclaimer" id="discBtn">⚠ Not medical advice — tap to read</button>`;
